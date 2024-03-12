@@ -1,0 +1,1083 @@
+Program.Sub.ScreenSU.Start
+Gui.NcellImport..create
+Gui.NcellImport..caption("Import Ncell Files")
+Gui.NcellImport..size(4140,1245)
+Gui.NcellImport..position(0,0)
+Gui.NcellImport..event(UnLoad,ncellimport_unload)
+Gui.NcellImport..forecolor(0)
+Gui.NcellImport..fontstyle(,,,)
+Gui.NcellImport..BackColor(-2147483633)
+Gui.NcellImport..maxbutton(False)
+Gui.NcellImport..mousepointer(0)
+Gui.NcellImport..sizeable(False)
+Gui.NcellImport..MinX(0)
+Gui.NcellImport..MinY(0)
+Gui.NcellImport.cmdRun.create(button)
+Gui.NcellImport.cmdRun.caption("Run Now")
+Gui.NcellImport.cmdRun.size(1230,375)
+Gui.NcellImport.cmdRun.position(1395,120)
+Gui.NcellImport.cmdRun.event(Click,Update)
+Gui.NcellImport.lblStatus.create(label,"",True,3600,360,1,200,800,True,0,Arial,12,-2147483633,0)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Variable.UDT.material.Define("PART",String)
+Variable.UDT.material.Define("QTY",Float)
+Variable.UDT.material.Define("WO",String)
+Variable.UDT.material.Define("SUFFIX",String)
+Variable.UDT.material.Define("SEQ",String)
+Variable.UDT.material.Define("ALL",Float)
+
+Variable.UDT.Nest.Define("NestID",String)
+Variable.UDT.Nest.Define("NestSuffix",String)
+Variable.UDT.Nest.Define("Increment",String)
+Variable.UDT.Nest.Define("Job",String)
+Variable.UDT.Nest.Define("Suffix",String)
+Variable.UDT.Nest.Define("MatSeq",String)
+Variable.UDT.Nest.Define("LabSeq",String)
+Variable.UDT.Nest.Define("BegDate",String)
+Variable.UDT.Nest.Define("EndDate",String)
+Variable.UDT.Nest.Define("WC",String)
+Variable.UDT.Nest.Define("Part",String)
+Variable.UDT.Nest.Define("PartLoc",String)
+Variable.UDT.Nest.Define("SortOrder",String)
+Variable.UDT.Nest.Define("BegDueDate",String)
+Variable.UDT.Nest.Define("EndDueDate",String)
+Variable.UDT.Nest.Define("FillerA",String)
+Variable.UDT.Nest.Define("FillerB",String)
+Variable.uGlobal.uNest.Declare("Nest")
+
+Variable.UDT.MatUsed.Define("Part",String)
+Variable.UDT.MatUsed.Define("Amount",Float)
+Variable.uGlobal.uMatUsed.Declare("MatUsed")
+v.Global.sLogName.Declare(string)
+v.Global.sProcessIDfile.Declare(string)
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'CGI Ncell Import/Export
+'Runs on any hook
+
+V.Global.count.Declare(Float)
+V.Local.sOpen.Declare(String)
+V.Local.iPID.Declare(Long)
+V.Local.sImportDir.Declare(String)
+V.Local.sImportNest.Declare(String)
+V.Local.sImportExport.Declare(String)
+V.Local.sfileimport.Declare(String)
+V.Local.ihwnd.Declare(Long)
+V.Local.bexists.Declare(Boolean)
+V.Local.sCheckFile.Declare(String)
+
+
+f.Intrinsic.Control.Try
+
+
+'F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+'f.Intrinsic.Control.CallSub(writefile,"WC","AS01")
+'check whether a log file exists otherwise create one
+f.Intrinsic.String.Build("{0}\GCG_4626_NCELL_LOG.txt",v.caller.GasDir,v.Global.sLogName)
+Function.Intrinsic.File.Exists(v.Global.slogname, v.Local.bexists)
+f.Intrinsic.Control.If(v.Local.bexists,=,False)
+	 f.Intrinsic.File.String2File(v.Global.sLogName,"")
+f.Intrinsic.Control.EndIf
+'check whether a PID File exists
+f.intrinsic.String.Build("{0}\GCG_4626_NCELL_PID.txt",v.Caller.GasDir,v.Global.sProcessIDfile)
+f.Intrinsic.file.exists(v.Global.sProcessIDfile,v.Local.bexists)
+'create file wit PID if file does not exist
+f.Intrinsic.Control.If(v.Local.bexists,=,false)
+	f.Intrinsic.File.String2File(v.Global.sProcessIDfile,v.Ambient.PID)
+f.Intrinsic.control.Else
+	'check if there is a PID already in File
+	f.Intrinsic.File.File2String(v.Global.sProcessIDfile,v.Local.sCheckFile)
+	f.Intrinsic.Control.If(v.Local.sCheckFile,<>,"")
+		Function.Intrinsic.Task.PIDRunning(v.Local.sCheckFile,v.Local.bexists)
+		'check if PID found in file is not running and then replace existing PID with new PID
+		f.Intrinsic.Control.If(v.Local.bexists,=,false)
+			f.Intrinsic.File.String2File(v.Global.sProcessIDfile,v.Ambient.PID)
+		f.Intrinsic.control.Else
+			'If PID in file is running end program
+			f.Intrinsic.Control.end			
+		f.Intrinsic.Control.EndIf
+	f.Intrinsic.Control.Else
+		f.Intrinsic.File.String2File(v.Global.sProcessIDfile,v.Ambient.PID)
+	f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.EndIf
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+
+'F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+f.Intrinsic.Control.CallSub(update)
+'Gui.NcellImport..Show
+
+f.Intrinsic.Control.Catch
+'update the log  with error details
+v.Local.sError.declare(string)
+Function.Intrinsic.String.Concat(v.Ambient.Now,": Project: GCG_4626_NCELL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sError)
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.Intrinsic.Control.EndTry
+
+Program.Sub.Main.End
+
+Program.Sub.ncellimport_unload.Start
+f.Intrinsic.Control.Try
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.ODBC.Connection!conx.Close
+F.Intrinsic.Control.End
+
+f.Intrinsic.Control.Catch
+'update the log  with error details
+v.Local.sError.declare(string)
+Function.Intrinsic.String.Concat(v.Ambient.Now,": Project: GCG_4626_NCELL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sError)
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.Intrinsic.Control.EndTry
+
+Program.Sub.ncellimport_unload.End
+
+Program.Sub.Update.Start
+f.Intrinsic.Control.Try
+
+Gui.NcellImport.cmdRun.Enabled(false)
+
+V.Local.sImportDir.Declare(String)
+V.Local.sFileList.Declare(String)
+V.Local.iFor.Declare(Long)
+V.Local.sFileType.Declare(String)
+v.Local.sFilePath.Declare(String)
+v.Local.bExist.Declare(Boolean)
+v.Local.sLog.Declare(string)
+f.Intrinsic.String.Build("{0} : Info! Starting {1} Sub",v.Ambient.Now, v.Ambient.CurrentSubroutine,v.Local.sLog)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+
+'V.Local.sImportDir.Set("P:\Ncell\GLOBAL_DATA\")
+f.Intrinsic.String.Build("{0}\NCELL.dat",v.Caller.FilesDir,v.Local.sFilePath)
+f.Intrinsic.File.Exists(v.Local.sFilePath,v.Local.bExist)
+f.Intrinsic.Control.If(v.Local.bExist,=,False)
+'	f.Intrinsic.UI.Msgbox("File Global\NCELL.dat does not exist.","Warning")
+	f.Intrinsic.String.Build("{0} : Warning! File Global\NCELL.dat does not exist",v.Ambient.Now, v.Local.sLog)
+	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Intrinsic.Control.End
+
+f.Intrinsic.Control.EndIf
+f.Intrinsic.File.File2String(v.Local.sFilePath,v.Local.sImportDir)
+f.Intrinsic.Control.If(v.Local.sImportDir,=,"")
+	'f.Intrinsic.UI.Msgbox("File path is not specified in Global\NCELL.dat file","Warning")
+	f.Intrinsic.String.Build("{0} : Warning! File path is not specified in Global\NCELL.dat file",v.Ambient.Now, v.Local.sLog)
+	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Intrinsic.Control.End
+
+f.Intrinsic.Control.EndIf
+f.Intrinsic.String.Split(v.Local.sImportDir,v.Ambient.NewLine,v.Local.sImportDir)
+v.Local.sImportDir.RedimPreserve(0,1)
+'0 is import, 1 is export
+f.Intrinsic.String.Build("{0}\",v.Local.sImportDir(0).Trim,v.Local.sImportDir(0))
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir(1).Trim,v.Local.sImportDir(1))
+
+'Create Export file
+f.Intrinsic.Control.CallSub(getvalidwcs)
+'f.Intrinsic.String.Build("{0} : Info! WC variables passed are {1}",v.Ambient.Now,v.Args.WC, v.Local.sLog)
+'f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+f.Intrinsic.Control.CallSub(writefile,"WC",v.Args.WC,"ExportPath",v.Local.sImportDir(1))
+
+	
+
+'get list of all files in the directory
+F.Intrinsic.File.GetFileList(V.Local.sImportDir,V.Local.sFileList)
+'if no files are found, exit program
+F.Intrinsic.Control.If(V.Local.sFileList.Trim,=,"")
+	F.Intrinsic.Control.CallSub(Ncellimport_unload)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Split(V.Local.sFileList,":",V.Local.sFileList)
+'for each file, see that type it is and call appropriate sub to handle it.
+F.Intrinsic.Control.For(V.Local.iFor,V.Local.sFileList.LBound,V.Local.sFileList.UBound,1)
+
+	F.Intrinsic.String.Split(V.Local.sFileList(v.Local.iFor),"-",V.Local.sFileType)
+	F.Intrinsic.Control.If(V.Local.sFileType(v.Local.sFileType.UBound).UCase,=,"COMMIT.CSV")
+		F.Intrinsic.Control.CallSub(Commit,"File",V.Local.sFileList(v.Local.iFor))
+
+	F.Intrinsic.Control.elseIf(V.Local.sFileType(v.Local.sFileType.UBound).UCase,=,"FS.TXT")
+		F.Intrinsic.Control.CallSub(Fs,"File",V.Local.sFileList(v.Local.iFor))
+
+	F.Intrinsic.Control.elseIf(V.Local.sFileType(v.Local.sFileType.UBound).UCase,=,"LM.TXT")
+		F.Intrinsic.Control.CallSub(Lm,"File",V.Local.sFileList(v.Local.iFor))
+
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iFor)
+F.Intrinsic.Control.CallSub(Ncellimport_unload)
+
+f.Intrinsic.Control.Catch
+'update the log  with error details
+v.Local.sError.declare(string)
+Function.Intrinsic.String.Concat(v.Ambient.Now,": Project: GCG_4626_NCELL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sError)
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.Intrinsic.Control.EndTry
+
+Program.Sub.Update.End
+
+Program.Sub.writeFile.Start
+f.Intrinsic.Control.Try
+
+V.Local.sSel.Declare(String)
+V.Local.sSelB.Declare(String)
+V.Local.sJobSuff.Declare(String)
+V.Local.sJob.Declare(String)
+V.Local.sSO.Declare(String)
+V.Local.sMat.Declare(String)
+V.Local.sAddtlSeq.Declare(String)
+V.Local.sJobData.Declare(String)
+V.Local.sNcellFile.Declare(String)
+V.Local.sTmpFIle.Declare(String)
+V.Local.lHndl.Declare(Long)
+V.Local.bExists.Declare(Boolean)
+V.Local.lFor.Declare(Long)
+V.Local.iWait.Declare(Long)
+V.Local.icount.Declare(Long)
+V.Local.iHwnd.Declare(Long)
+V.Local.sRet.Declare(String)
+V.Local.sCustomer.Declare(String)
+V.Local.sOP.Declare(String)
+V.Local.sPO.Declare(String)
+V.Local.iRet.Declare(Long)
+V.Local.sBkp.Declare(String)
+V.Local.sFileData.Declare(String)
+V.Local.sHold.Declare(String)
+V.Local.sRev.Declare(String)
+V.Local.dDate.Declare(Date)
+v.Local.sLog.Declare(String)
+v.Local.fUnit.Declare(Float)
+f.Intrinsic.String.Build("{0} : Info! Starting {1} Sub",v.Ambient.Now, v.Ambient.CurrentSubroutine,v.Local.sLog)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+
+
+'first update Job Operations.Part to the WC from UBDetail, this will prevent further scheduling from changing to a different WC.
+'F.Intrinsic.String.Build("Select * from APSV3_UBDetail where SAR in ('{0}') ",V.Args.WC,V.Local.sSel)
+'F.ODBC.Connection!Conx.OpenRecordsetRO("rstUB",V.Local.sSel)
+'F.Intrinsic.Control.If(V.ODBC.Conx!rstUB.EOF,<>,True)
+'	F.Intrinsic.Control.DoUntil(V.ODBC.Conx!rstUB.EOF,=,True)
+'		F.Intrinsic.String.LPad(V.ODBC.Conx!rstUB.FieldValTrim!SEQ,"0",6,V.Local.sSelB)
+
+'		'Check to see if job on hold, if on hold then skip
+'		F.Intrinsic.String.Build("Select FLAG_HOLD from v_JOB_HEADER where JOB = '{0}' and SUFFIX = '{1}' ",V.ODBC.Conx!rstUB.FieldValTrim!JOB,V.ODBC.Conx!rstUB.FieldValTrim!SFX,V.Local.sSel)
+'		F.ODBC.Connection!Conx.OpenRecordsetRO("rstHold",V.Local.sSel)
+'		F.Intrinsic.Control.If(V.ODBC.Conx!rstHold.EOF,<>,True)
+
+'			F.Intrinsic.Control.If(V.ODBC.Conx!rstHold.FieldValTrim!FLAG_HOLD,<>,"Y")
+'				'update Job Operations.Part to the WC from UBDetail
+'				F.Intrinsic.String.Build("update job_operations set PART = '{0}' where JOB = '{1}' and SUFFIX = '{2}' and SEQ = '{3}' ",V.ODBC.Conx!rstUB.FieldValTrim!SAR,V.ODBC.Conx!rstUB.FieldValTrim!JOB,V.ODBC.Conx!rstUB.FieldValTrim!SFX,V.Local.sSelB,V.Local.sSel)
+'				F.ODBC.Connection!Conx.Execute(V.Local.sSel)
+'			F.Intrinsic.Control.EndIf
+
+'		F.Intrinsic.Control.EndIf
+'		F.ODBC.Conx!rstHold.Close
+
+'		F.ODBC.Conx!rstUB.MoveNext
+'	F.Intrinsic.Control.Loop
+'F.Intrinsic.Control.EndIf
+'F.ODBC.Conx!rstUB.Close
+
+
+'create data table and loading it with data from apsvr_ubdetail
+F.Intrinsic.String.Build("Select distinct SAR as PART,JS,JOB,SFX as SUFFIX,Right(Concat('000000',SEQ),6) as SEQ from APSV3_UBDetail where SAR in ('{0}') ",V.Args.WC,V.Local.sSel)
+'f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSel, v.Local.sLog)
+'f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+F.data.DataTable.CreateFromSQL("UBDet","conx",v.Local.sSel)
+f.Data.DataTable.AddColumn("UBDet","FlagHld","String")
+'create dictionary with job and Suffix as key and Flag_hold as value
+f.Data.Dictionary.CreateFromSQL("FlgChk","conx","Select concat(Job,suffix) as JS,FLAG_HOLD from v_JOB_HEADER")
+f.Data.Dictionary.SetDefaultReturn("FlgChk","N")
+'fill datatable from dictionary
+f.Data.DataTable.FillFromDictionary("UBDet","FlgChk","JS","FlagHld")
+'check for flag and delete row with flag "Y"
+f.Data.DataView.Create("UBdet","UbDetFlg",22,"FlagHld<>'Y'","")
+f.Data.DataView.ToDataTable("UBDet","UBdetFlg","UBDetFlt")
+
+'remove js and flag check columns from data tables
+f.data.DataTable.RemoveColumn("UBDetFlt","JS")
+f.data.DataTable.RemoveColumn("UBdetFlt","FlagHld")
+'save datatable to Job Operations DB 
+f.data.DataTable.SaveToDB("UBdetFlt","conx","job_operations","Job*!*Suffix*!*SEQ",256)
+f.Data.DataTable.Close("UBdet")
+f.Data.DataTable.Close("UBdetFlt")
+f.Data.Dictionary.Close("FlgChk")
+
+
+
+
+
+
+
+' WO~Seq~DXF file~Router Revision~FG Description~WC~LMO~QTY~Seq Due Date~Raw Material~Customer~Code Sort
+F.Intrinsic.String.Build("select Job,'-',Suffix, Seq, 'DXF','REV', 'DESCR', rtrim(Part), LMO, Units_Open, Date_Due, 'NCELLMAT','CUST', rtrim(Code_Sort_Oper),'OP' from v_Job_Operations where LMO = 'L' and Flag_Closed <> 'Y' and Part in ('{0}') ",V.Args.WC,V.Local.sSel)
+'f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSel, v.Local.sLog)
+'f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+F.ODBC.Connection!Conx.OpenRecordsetRO("rstX",V.Local.sSel)
+F.Intrinsic.Control.DoUntil(V.ODBC.Conx!rstX.EOF,=,True)
+	'check to make sure job is not on hold.
+	F.Intrinsic.String.Build("Select FLAG_HOLD from v_JOB_HEADER where JOB = '{0}' and SUFFIX = '{1}' AND DATE_CLOSED = '1900-01-01' ",V.ODBC.Conx!rstX.FieldValTrim!Job,V.ODBC.Conx!rstX.FieldValTrim!Suffix,V.Local.sSel)
+'	f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSel, v.Local.sLog)
+'	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	F.ODBC.Connection!Conx.OpenRecordsetRO("rstHold",V.Local.sSel)
+	F.Intrinsic.Control.If(V.ODBC.Conx!rstHold.EOF,<>,True)
+		F.Intrinsic.Control.If(V.ODBC.Conx!rstHold.FieldValTrim!FLAG_HOLD,<>,"Y")
+
+
+			' write the record to a string
+			F.ODBC.Conx!rstX.Record2String(V.Local.sJobData)
+			F.Intrinsic.String.Split(V.Local.sJobData,"*!*",V.Local.sHold)
+
+			' wait count for wait status
+			F.Intrinsic.Math.Add(V.Local.icount,1,V.Local.icount)
+			F.Intrinsic.Control.If(V.Local.icount,=,5)
+				F.Intrinsic.Math.Add(V.Local.iWait,1,V.Local.iWait)
+				V.Local.icount.Set(0)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.If(V.Local.iWait,=,11)
+				V.Local.iWait.Set(0)
+			F.Intrinsic.Control.EndIf
+
+			' first value needs to be job-suffix
+			F.Intrinsic.String.Replace(V.Local.sJobData,"*!*-*!*","-",V.Local.sJobData)
+			' all values should be ~ delimited
+			F.Intrinsic.String.Replace(V.Local.sJobData,"*!*","~",V.Local.sJobData)
+			' need to trim the (4) element, so split and rejoin
+			F.Intrinsic.String.Split(V.Local.sJobData,"~",V.Local.sJobSuff)
+			F.Intrinsic.String.Split(V.Local.sJobSuff(0),"-",V.Local.sJob)
+			F.Intrinsic.String.Trim(V.Local.sJobSuff(4),V.Local.sJobSuff(4))
+			F.Intrinsic.String.Join(V.Local.sJobSuff,"~",V.Local.sJobData)
+
+			' get job header information
+			' Router Rev, Description
+ 			F.Intrinsic.String.Build("select Part, Description, Customer, Drawing_Customer from Job_Header where Job = '{0}' and Suffix = '{1}' ",V.Local.sJob(0),V.Local.sJob(1),V.Local.sSelB)
+'			f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSelB, v.Local.sLog)
+'			f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+			F.ODBC.Connection!Conx.ExecuteAndReturn(V.Local.sSelB,V.Local.sRet)
+			F.Intrinsic.String.Split(V.Local.sRet,"#!#",V.Local.sRet)
+			F.Intrinsic.String.Split(V.Local.sRet(0),"*!*",V.Local.sRet)
+			V.Local.sRet.RedimPreserve(0,3)
+			' Rev
+			F.Intrinsic.String.RPad(V.Local.sRet(0).Trim," ",20,V.Local.sRet(0))
+			F.Intrinsic.String.Right(V.Local.sRet(0),3,V.Local.sRev)
+			F.Intrinsic.String.Replace(V.Local.sJobData,"REV",V.Local.sRev.Trim,V.Local.sJobData)
+			' Descripiton
+			F.Intrinsic.String.Replace(V.Local.sJobData,"DESCR",V.Local.sRet(1).Trim,V.Local.sJobData)
+			' Customer
+			F.Intrinsic.String.Replace(V.Local.sJobData,"CUST",V.Local.sRet(2).Trim,V.Local.sJobData)
+			' DXF File
+			F.Intrinsic.String.Replace(V.Local.sJobData,"DXF",V.Local.sRet(0).Trim,V.Local.sJobData)
+			' Raw Material Part
+			F.Intrinsic.String.Build("select Part, Units from Job_Operations where LMO = 'M' and Job = '{0}' and Suffix = '{1}' and Seq < '{2}' and Part <> '' order by Seq desc",V.Local.sJob(0),V.Local.sJob(1),V.ODBC.Conx!rstX.FieldVal!SEQ,V.Local.sSelB)
+'			f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSelB, v.Local.sLog)
+'			f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+			F.ODBC.Connection!Conx.OpenRecordsetRO("rstB",V.Local.sSelB)
+				F.Intrinsic.Control.If(V.ODBC.Conx!rstB.EOF,=,False)
+					V.Local.sMat.Set(V.ODBC.Conx!rstB.FieldValTrim!PART)
+					v.Local.fUnit.Set(V.ODBC.Conx!rstB.FieldValTrim!UNITS)
+				F.Intrinsic.Control.Else
+					V.Local.sMat.Set("")
+					v.Local.fUnit.Set(0)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.String.Replace(V.Local.sJobData,"NCELLMAT",V.Local.sMat,V.Local.sJobData)
+
+			V.Local.sAddtlSeq.Set("")
+			V.Local.lFor.Set(0)
+
+			F.Intrinsic.String.Concat("select Operation from Job_Operations where JOB='",V.Local.sJob(0),"' and SUFFIX='",V.Local.sJob(1),"' and LMO='O'  and Seq >'",V.ODBC.Conx!rstX.FieldVal!SEQ,"' and Seq < '995000' order by Seq",V.Local.sSelB)
+'			f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSelB, v.Local.sLog)
+'			f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+			F.ODBC.Connection!Conx.ExecuteAndReturn(V.Local.sSelB,V.Local.sRet)
+			F.Intrinsic.String.Split(V.Local.sRet,"#!#",V.Local.sRet)
+			F.Intrinsic.String.Split(V.Local.sRet(0),"*!*",V.Local.sRet)
+			V.Local.sOP.set(V.Local.sRet(0).Trim)
+			F.Intrinsic.String.Replace(V.Local.sJobData,"OP",V.Local.sOP.Trim,V.Local.sJobData)
+
+			F.Intrinsic.String.Build("SELECT QTY_ONHAND FROM V_INVENTORY_MSTR WHERE PART = '{0}' AND QTY_ONHAND >= '{1}' ",V.Local.sMat.PSQLFriendly,v.Local.fUnit,V.Local.sSel)
+'			f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSel, v.Local.sLog)
+'			f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+			F.ODBC.Connection!Conx.OpenLocalRecordsetRO("rst",V.Local.sSel)
+			F.Intrinsic.Control.If(V.ODBC.Conx!rst.EOF,=,False)
+				F.Intrinsic.Control.If(V.ODBC.Conx!rst.FieldValFloat!QTY_ONHAND,<>,0)
+					F.Intrinsic.String.Build("{0}{1}{2}",V.Local.sFileData,V.Local.sJobData,V.Ambient.NewLine,V.Local.sFileData)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+			F.ODBC.Conx!rst.Close
+			F.ODBC.Conx!rstB.Close
+
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+	F.ODBC.Conx!rstHold.Close
+
+F.ODBC.Conx!rstX.MoveNext
+F.Intrinsic.Control.Loop
+F.ODBC.Conx!rstX.Close
+
+F.Intrinsic.UI.CloseWaitDialog
+
+V.Local.sTmpFIle.Set("GSS-To_Ncell.txt")
+f.Intrinsic.File.MakeFilenameFriendly(v.Local.sTmpFIle,v.Local.sTmpFIle)
+F.Intrinsic.String.Build("{0}\{1}",V.Args.ExportPath.Trim,V.Local.sTmpFIle,V.Local.sTmpFIle)
+F.Intrinsic.File.String2File(V.Local.sTmpFIle,V.Local.sFileData)
+
+f.Intrinsic.Control.Catch
+'update the log  with error details
+v.Local.sError.declare(string)
+Function.Intrinsic.String.Concat(v.Ambient.Now,": Project: GCG_4626_NCELL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sError)
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.Intrinsic.Control.EndTry
+
+Program.Sub.writeFile.End
+
+Program.Sub.getValidWCs.Start
+f.Intrinsic.Control.Try
+
+V.Local.sSel.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sHold.Declare(String)
+v.Local.Slog.declare(String)
+f.Intrinsic.String.Build("{0} : Info! Starting {1} Sub",v.Ambient.Now, v.Ambient.CurrentSubroutine,v.Local.sLog)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+' get list of Nesting workcenters
+F.ODBC.Connection!Conx.ExecuteAndReturn("select Machine from Workcenters where Nesting_Intrfc = 'Y' ",V.Local.sRet)
+
+F.Intrinsic.Control.If(V.Local.sRet.Trim,=,"")
+	F.Intrinsic.Control.CallSub(ncellimport_unload)
+F.Intrinsic.Control.EndIf
+'	 formatthedeilimitedreturn,touseinthenextquery
+	F.Intrinsic.String.Replace(V.Local.sRet,"*!*","",V.Local.sRet)
+	F.Intrinsic.String.Replace(V.Local.sRet,"#$#","','",V.Local.sRet)
+	V.Local.sHold.Set(V.Local.sRet)
+F.Intrinsic.Variable.AddRV("WC",V.Local.sHold)
+
+f.Intrinsic.Control.Catch
+'update the log  with error details
+v.Local.sError.declare(string)
+Function.Intrinsic.String.Concat(v.Ambient.Now,": Project: GCG_4626_NCELL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sError)
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.Intrinsic.Control.EndTry
+
+Program.Sub.getValidWCs.End
+
+Program.Sub.Commit.Start
+'Update work order with size and material used from Ncell Commit File
+f.Intrinsic.Control.Try
+V.uLocal.uMat.Declare(Material)
+V.Local.sImportDir.Declare(String)
+V.Local.sImport.Declare(String)
+V.Local.sRow.Declare(String)
+V.Local.sSQL.Declare(String)
+V.Local.sParam.Declare(String)
+V.Local.sbackup.Declare(String)
+V.Local.sImportFile.Declare(String)
+V.Local.smatseq.Declare(String)
+V.Local.filler.Declare(String)
+V.Local.sWO.Declare(String)
+V.Local.sJob.Declare(String)
+V.Local.sSuffix.Declare(String)
+V.Local.sSeq.Declare(String)
+V.Local.sMaterial.Declare(String)
+V.Local.fUsage.Declare(Float)
+V.Local.fQty.Declare(Float)
+V.Local.r.Declare(Long)
+V.Local.iWait.Declare(Long)
+V.Local.ihwnd.Declare(Long)
+V.Local.sNestId.Declare(String)
+V.Local.iIncrement.Declare(Long)
+V.Local.sIncrement.Declare(String)
+V.Local.sWC.Declare(String)
+V.Local.bexists.Declare(Boolean)
+V.Local.iNestredim.Declare(Long)
+V.Local.sparams.Declare(String)
+V.Local.sDueDate.Declare(String)
+V.Local.fTotalWt.Declare(Float)
+V.Local.fThickness.Declare(Float)
+V.Local.fDensity.Declare(Float)
+v.Local.sFilePath.Declare(String)
+v.Local.sLog.Declare(string)
+f.Intrinsic.String.Build("{0} : Info! Starting {1} Sub",v.Ambient.Now, v.Ambient.CurrentSubroutine,v.Local.sLog)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+
+V.Local.filler.Redim(0,3)
+V.uLocal.uMat.Redim(0,0)
+V.uLocal.uMat(0)!QTY.Set(0)
+
+'V.Local.sImportDir.Set("P:\Ncell\GLOBAL_DATA")
+f.Intrinsic.String.Build("{0}\NCELL.dat",v.Caller.FilesDir,v.Local.sFilePath)
+f.Intrinsic.File.Exists(v.Local.sFilePath,v.Local.bExists)
+f.Intrinsic.Control.If(v.Local.bExists,=,False)
+	'f.Intrinsic.UI.Msgbox("File Global\NCELL.dat does not exist.","Warning")
+	f.Intrinsic.String.Build("{0} : Warning! File Global\NCELL.dat does not exist.",v.Ambient.Now, v.Local.sLog)
+	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Intrinsic.Control.End
+
+f.Intrinsic.Control.EndIf
+f.Intrinsic.File.File2String(v.Local.sFilePath,v.Local.sImportDir)
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir,v.Local.sImportDir)
+f.Intrinsic.Control.If(v.Local.sImportDir,=,"")
+	'f.Intrinsic.UI.Msgbox("File path is not specified in Global\NCELL.dat file","Warning")
+	f.Intrinsic.String.Build("{0} : Warning! File path is not specified in Global\NCELL.dat file",v.Ambient.Now, v.Local.sLog)
+	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Intrinsic.Control.End
+
+f.Intrinsic.Control.EndIf
+f.Intrinsic.String.Split(v.Local.sImportDir,v.Ambient.NewLine,v.Local.sImportDir)
+v.Local.sImportDir.RedimPreserve(0,1)
+'0 is import, 1 is export
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir(0).Trim,v.Local.sImportDir(0))
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir(1).Trim,v.Local.sImportDir(1))
+
+V.Local.iNestRedim.Set(-1)
+
+F.Intrinsic.UI.InvokeWaitDialog("Initiating Interface","GSS-NCELL Interface",V.Local.ihwnd)
+
+'Copy and Delete file here
+F.Intrinsic.String.Concat(V.Local.sImportDir,"\",V.Args.File,V.Local.sImportFile)
+F.Intrinsic.String.Concat(V.Local.sImportDir,"\Backup\",V.Args.File,".bkp",V.Local.sbackup)
+F.Intrinsic.File.Exists(V.Local.sbackup,V.Local.bexists)
+F.Intrinsic.Control.If(V.Local.bexists,=,True)
+	F.Intrinsic.File.DeleteFile(V.Local.sbackup)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.File.CopyFile(V.Local.sImportFile,V.Local.sBackup)
+F.Intrinsic.File.File2String(V.Local.sImportFile,V.Local.sImport)
+F.Intrinsic.File.DeleteFile(V.Local.sImportFile)
+
+'split on each line
+F.Intrinsic.String.Split(V.Local.simport,V.Ambient.NewLine,V.Local.simport)
+'for each line
+F.Intrinsic.Control.For(V.Local.r,V.Local.simport.LBound,V.Local.simport.UBound,1)
+	F.Intrinsic.UI.ChangeWaitStatus("Updating Nested Material",V.Local.iWait,0,V.Local.sImport.UBound)
+	F.Intrinsic.Math.Add(V.Local.iWait,1,V.Local.iWait)
+	F.Intrinsic.String.SplitCSV(V.Local.sImport(v.Local.r),V.Local.sRow)
+'N=New nest
+	F.Intrinsic.Control.If(V.Local.sRow(0),=,"N")
+	'multiply Thickness * Density to get value to use in weight
+		V.Local.iIncrement.Set(0)
+		F.Intrinsic.String.LPad(V.Local.sRow(1),"0",6,V.Local.sNestId)
+		V.Local.fThickness.Set(V.Local.sRow(2))
+		V.Local.fDensity.Set(V.Local.sRow(6))
+	F.Intrinsic.Control.EndIf
+
+'S=sheet info.  Not used
+
+'R= Raw material line
+	F.Intrinsic.Control.If(V.Local.sRow(0).Trim,=,"(R)")
+		V.Local.sMaterial.Set(V.Local.sRow(1).Trim)
+	F.Intrinsic.Control.EndIf
+
+'P= process line
+	F.Intrinsic.Control.If(V.Local.sRow(0).Trim,=,"P")
+		F.Intrinsic.Math.Add(V.Local.iNestRedim,1,V.Local.iNestRedim)
+		F.Intrinsic.Math.Add(V.Local.iIncrement,1,V.Local.iIncrement)
+			F.Intrinsic.String.LPad(V.Local.iIncrement,"0",6,V.Local.sIncrement)
+
+		F.Intrinsic.String.Split(V.Local.sRow(2).Trim,"-",V.Local.sWO)
+			V.Local.sWO.RedimPreserve(0,1)
+			V.Local.sJob.Set(V.Local.sWO(0))
+			V.Local.sSuffix.Set(V.Local.sWO(1))
+		F.Intrinsic.String.Split(V.Local.sWO(1),":",V.Local.sSeq)
+			V.Local.sSeq.RedimPreserve(0,1)
+'
+			V.Local.fUsage.Set(V.Local.sRow(7))
+			V.Local.fQty.Set(V.Local.sRow(5))
+			F.Intrinsic.Math.Mult(V.Local.fUsage,V.Local.fThickness,V.Local.fDensity,V.Local.fTotalWt)
+			F.Intrinsic.Math.Round(V.Local.fTotalWt,4,V.Local.fTotalWt)
+
+'update job with actual material being used
+	'V.Local.fUsage will be calculation on "N" * PartAreaAllocSheet
+		F.Intrinsic.Math.Mult(V.Local.fTotalWt,V.Local.sRow(7),V.Local.fUsage)
+		F.Intrinsic.String.Concat("select * from JOB_OPERATIONS where LMO='M' and SEQ<'",V.Local.sSeq(1),"' and JOB='",V.Local.sWO(0).Trim,"' and SUFFIX='",V.Local.sSeq(0).Trim,"'",V.Local.sSQL)
+'		f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSQL, v.Local.sLog)
+'		f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+		F.ODBC.Connection!conx.OpenRecordsetRW("rstJobOps",V.Local.sSQL)
+			F.Intrinsic.Control.If(V.ODBC.conx!rstJobOps.EOF,=,False)
+				F.ODBC.conx!rstJobOps.Set!PART(V.Local.sMaterial.Trim)
+				F.ODBC.conx!rstJobOps.Set!HOURS_ESTIMATED(V.Local.fTotalWt)
+				F.ODBC.conx!rstJobOps.Update
+				V.Local.sMatSeq.Set(V.ODBC.conx!rstJobOps.FieldValtrim!SEQ)
+			F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rstJobOps.Close
+
+		F.Intrinsic.String.Concat("select * from JOB_OPERATIONS where SEQ='",V.Local.sSeq(1).Trim,"' and JOB='",V.Local.sWO(0).Trim,"' and SUFFIX='",V.Local.sSeq(0).Trim,"'",V.Local.sSQL)
+'		f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSQL, v.Local.sLog)
+'		f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+		F.ODBC.Connection!conx.OpenRecordsetRW("rstJobOps",V.Local.sSQL)
+			F.Intrinsic.Control.If(V.ODBC.conx!rstJobOps.EOF,=,False)
+				V.Local.sWC.Set(V.ODBC.conx!rstJobOps.FieldValTrim!PART)
+				F.ODBC.conx!rstJobOps.Set!UNITS_OPEN(V.Local.fQty)
+				F.ODBC.conx!rstJobOps.Update
+			F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rstJobOps.Close
+
+
+
+
+
+		F.Intrinsic.String.RPad(V.Local.sWO(0)," ",6,V.Local.sWO(0))
+		F.Intrinsic.String.RPad(V.Local.sSeq(0)," ",3,V.Local.sSeq(0))
+'		F.Intrinsic.String.Concat(V.Local.sWO(0),V.Local.sSeq(0),V.Local.sMatSeq,V.Local.sWO)
+		F.Intrinsic.String.Build("{0}!*!{1}!*!{2}",V.Local.sWO(0).Trim,V.Local.sSeq(0).Trim,V.Local.smatseq.Trim,V.Local.sParam)
+	'create commitment for an active job
+'		F.Intrinsic.String.Concat(V.Caller.CompanyCode,V.Local.sWO,V.Local.sParam)
+'		F.Intrinsic.Task.LaunchGSSSync("JB0056A","-C",V.Local.sParam)
+		f.Intrinsic.String.Build("{0} : Info! Initiating call wrapper 2005 with parameter {1}",v.Ambient.Now, v.Local.sParam,v.Local.sLog)
+		f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+		F.Global.General.CallWrapperSync(2005,V.Local.sParam)
+		
+
+		F.Intrinsic.String.RPad(V.Local.sWO(0)," ",6,V.Local.sWO(0))
+		F.Intrinsic.String.RPad(V.Local.sSeq(0)," ",3,V.Local.sSeq(0))
+'		F.Intrinsic.String.Concat(V.Local.sWO(0),V.Local.sSeq(0),V.Local.sWO)
+'		F.Intrinsic.String.Concat(V.Ambient.QuadQuote,V.Caller.CompanyCode,V.Local.sWO,"B","000000",V.Local.sDueDate,V.Ambient.QuadQuote,V.Local.sparams)
+'re-schedule the job with changes from comitment
+'		F.Intrinsic.Task.LaunchGSSSync("jb0011cl","-c",V.Local.sParams)
+		F.Global.APS.ScheduleJob(V.Local.sWO(0),V.Local.sSeq(0),"B",V.Ambient.Date)
+
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.r)
+
+f.Intrinsic.Control.Catch
+'update the log  with error details
+v.Local.sError.declare(string)
+Function.Intrinsic.String.Concat(v.Ambient.Now,": Project: GCG_4626_NCELL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sError)
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.Intrinsic.Control.EndTry
+
+Program.Sub.Commit.End
+
+Program.Sub.LM.Start
+f.Intrinsic.Control.Try
+V.Local.sFile.Declare(String)
+V.Local.sbackup.Declare(String)
+V.Local.bexists.Declare(Boolean)
+V.Local.sImport.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.iFor.Declare(Long)
+V.Local.sRow.Declare(String)
+'V.Local.sRMPart.Declare(String)
+'V.Local.sRMat.Declare(String)
+'V.Local.sMMat.Declare(String)
+'V.Local.iRcount.Declare(Long)
+'V.Local.iMcount.Declare(Long)
+'V.Local.iForMat.Declare(Long)
+V.Local.iIncrement.Declare(Long)
+'V.Local.sNestId.Declare(Long)
+'V.Local.fTotmatUsed.Declare(Float)
+'V.Local.ftotalsf.Declare(Float)
+'V.Local.bEnoughMat.Declare(Boolean)
+V.Local.sWO.Declare(String)
+V.Local.sJob.Declare(String)
+V.Local.sSuffix.Declare(String)
+V.Local.sSeq.Declare(String)
+V.Local.sHeat.Declare(String)
+'V.Local.fMatUsed.Declare(Float)
+V.Local.fMatIssue.Declare(Float)
+'V.Local.fQIssue.Declare(Float)
+V.Local.iNestRedim.Declare(Long)
+V.Local.sIncrement.Declare(String)
+V.Local.sDate.Declare(String)
+V.Local.sTimeIn.Declare(String)
+V.Local.sTimeOut.Declare(String)
+V.Local.bNumeric.Declare(Boolean)
+'V.Local.fLabUnits.Declare(Float)
+'V.Local.fMatUnits.Declare(Float)
+V.Local.fQTY.Declare(Float)
+V.Local.fUnitsComplete.Declare(Float)
+V.Local.sSQL.Declare(String)
+V.Local.sMatSeq.Declare(String)
+V.Local.sIssue.Declare(String)
+V.Local.iHndl.Declare(Long)
+V.Local.sImportDir.Declare(String)
+V.Local.sImportFile.Declare(String)
+V.Local.semployee.Declare(String)
+V.Local.sClose.Declare(String)
+V.Local.sQty.Declare(String)
+V.Local.sLaborData.Declare(String)
+V.Local.sWC.Declare(String)
+V.Local.sMaterial.Declare(String)
+v.Local.sFilePath.Declare(String)
+v.Local.sLog.Declare(string)
+f.Intrinsic.String.Build("{0} : Info! Starting {1} Sub",v.Ambient.Now, v.Ambient.CurrentSubroutine,v.Local.sLog)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+V.Local.iNestRedim.Set(-1)
+V.Local.sLaborData.Set("")
+'employee will be 00999
+V.Local.semployee.Set("11111")
+
+
+'V.Local.sImportDir.Set("P:\Ncell\GLOBAL_DATA")
+f.Intrinsic.String.Build("{0}\NCELL.dat",v.Caller.FilesDir,v.Local.sFilePath)
+f.Intrinsic.File.Exists(v.Local.sFilePath,v.Local.bExists)
+f.Intrinsic.Control.If(v.Local.bExists,=,False)
+	'f.Intrinsic.UI.Msgbox("File Global\NCELL.dat does not exist.","Warning")
+	f.Intrinsic.String.Build("{0} : Warning! File Global\NCELL.dat does not exist",v.Ambient.Now, v.Local.sLog)
+	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Intrinsic.Control.End
+
+f.Intrinsic.Control.EndIf
+f.Intrinsic.File.File2String(v.Local.sFilePath,v.Local.sImportDir)
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir,v.Local.sImportDir)
+f.Intrinsic.Control.If(v.Local.sImportDir,=,"")
+	'f.Intrinsic.UI.Msgbox("File path is not specified in Global\NCELL.dat file","Warning")
+	f.Intrinsic.String.Build("{0} : Warning! File path is not specified in Global\NCELL.dat file",v.Ambient.Now, v.Local.sLog)
+	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Intrinsic.Control.End
+
+f.Intrinsic.Control.EndIf
+f.Intrinsic.String.Split(v.Local.sImportDir,v.Ambient.NewLine,v.Local.sImportDir)
+v.Local.sImportDir.RedimPreserve(0,1)
+'0 is import, 1 is export
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir(0).Trim,v.Local.sImportDir(0))
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir(1).Trim,v.Local.sImportDir(1))
+
+'Copy and Delete file here
+F.Intrinsic.String.Concat(V.Local.sImportDir,"\",V.Args.File,V.Local.sImportFile)
+F.Intrinsic.String.Concat(V.Local.sImportDir,"\Backup\",V.Args.File,".bkp",V.Local.sbackup)
+F.Intrinsic.File.Exists(V.Local.sbackup,V.Local.bexists)
+F.Intrinsic.Control.If(V.Local.bexists,=,True)
+	F.Intrinsic.File.DeleteFile(V.Local.sbackup)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.File.CopyFile(V.Local.sImportFile,V.Local.sBackup)
+F.Intrinsic.File.File2String(V.Local.sImportFile,V.Local.sImport)
+F.Intrinsic.File.DeleteFile(V.Local.sImportFile)
+
+'Gui.NcellImport.lblStatus.Caption("Updating Labor...")
+F.Intrinsic.String.Split(V.Local.simport,V.Ambient.NewLine,V.Local.sLine)
+'for each line
+F.Intrinsic.Control.For(V.Local.iFor,V.Local.sLine.LBound,V.Local.sLine.UBound,1)
+	F.Intrinsic.String.SplitCSV(V.Local.sLine(V.Local.iFor),V.Local.sRow)
+'N = new nest.  get NetId and reset variables.
+	F.Intrinsic.Control.If(V.Local.sRow(0).Trim,=,"N")
+'		V.Local.sRMPart.Set("")
+'		V.Local.sRMat.Redim(0,0)
+'		V.Local.sMMat.Redim(0,0)
+'		V.Local.iRcount.Set(-1)
+'		V.Local.iMcount.Set(-1)
+'		V.Local.iForMat.Set(0)
+		V.Local.iIncrement.Set(0)
+'		F.Intrinsic.String.LPad(V.Local.sRow(1),"0",6,V.Local.sNestId)
+	F.Intrinsic.Control.EndIf
+
+'M=Material Line
+	F.Intrinsic.Control.If(V.Local.sRow(0).Trim,=,"M")
+	'(2)=WrkCenter
+		V.Local.sWC.Set(V.Local.sRow(2).UCase)
+	F.Intrinsic.Control.EndIf
+
+'P= Process Line
+	F.Intrinsic.Control.If(V.Local.sRow(0).Trim,=,"P")
+	'material=(6) on P
+		V.Local.sMaterial.Set(V.Local.sRow(6).Trim)
+	'get job, suffix, seq
+		F.Intrinsic.String.Split(V.Local.sRow(8),"-",V.Local.sWO)
+		V.Local.sWO.RedimPreserve(0,1)
+		V.Local.sJob.Set(V.Local.sWO(0))
+		V.Local.sSuffix.Set(V.Local.sWO(1))
+		f.Intrinsic.String.Split(v.Local.sWO(1),":",v.Local.sSeq)
+		v.Local.sSuffix.Set(v.Local.sSeq(0))
+		v.Local.sWO(1).Set(v.Local.sSeq(0))
+		v.Local.sSeq.Redim(0,0)
+		V.Local.sSeq.Set(V.Local.sRow(9))
+	'they will post the lbs used, but use the dimensions used to determine material availablility
+		V.Local.fMatIssue.Set(V.Local.sROW(14))
+'		V.Local.fMatUsed.Set(V.Local.sRow(12))
+	'verify qty complete
+		F.Intrinsic.String.Concat("Select * from JOB_OPERATIONS where  SEQ='",V.Local.sRow(9).Trim,"' and JOB='",V.Local.sWO(0).Trim,"' and SUFFIX='",V.Local.sWO(1).Trim,"' order by SEQ",V.Local.sSQL)
+'		f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSQL, v.Local.sLog)
+'		f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+		F.ODBC.Connection!conx.OpenRecordsetRW("rstJobOps",V.Local.sSQL)
+			F.Intrinsic.Control.If(V.ODBC.conx!rstJobOps.EOF,=,False)
+				F.Intrinsic.Math.Add(V.ODBC.conx!rstJobOps.FieldVal!Units_Complete,V.Local.sRow(11).Float,V.Local.fUnitsComplete)
+				F.Intrinsic.Control.If(V.Local.fUnitsComplete,>=,V.ODBC.conx!rstJobOps.FieldVal!Units_Open)
+					V.Local.sClose.Set("Y")
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rstJobOps.Close
+
+		F.Intrinsic.String.Concat("Select * From JOB_OPERATIONS WHERE  LMO='M' AND SEQ<'",V.Local.sRow(9).Trim,"' AND JOB='",V.Local.sWO(0).Trim,"' AND SUFFIX='",V.Local.sWO(1).Trim,"' order by SEQ",V.Local.sSQL)
+'		f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSQL, v.Local.sLog)
+'		f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+		F.ODBC.Connection!conx.OpenRecordsetRW("rstJobOps",V.Local.sSQL)
+			F.Intrinsic.Control.If(V.ODBC.conx!rstJobOps.EOF,=,False)
+				V.Local.sMATSEQ.Set(V.ODBC.conx!rstJobOps.FieldValTrim!SEQ)
+				F.ODBC.conx!rstJobOps.Set!FLAG_CLOSED(V.Local.sClose)
+				F.ODBC.conx!rstJobOps.Update
+			F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rstJobOps.Close
+		F.Intrinsic.String.Concat(V.Local.sIssue,V.Local.sMaterial.Trim,",,,",V.Local.fMatIssue,",","",",","",",",V.Local.sHeat,",","",",",V.Local.sJob,",",V.Local.sSuffix,",",V.Local.sMATSEQ,V.Ambient.NewLine,V.Local.sIssue)
+
+	'for labor update
+		F.Intrinsic.Math.Add(V.Local.iNestRedim,1,V.Local.iNestRedim)
+		F.Intrinsic.Math.Add(V.Local.iIncrement,1,V.Local.iIncrement)
+			F.Intrinsic.String.LPad(V.Local.iIncrement,"0",6,V.Local.sIncrement)
+		F.Intrinsic.String.Format(V.Local.sRow(3),"MMDDYY",V.Local.sDate)
+		F.Intrinsic.String.Split(V.Local.sRow(8),"-",V.Local.sWO)
+			V.Local.sWO.RedimPreserve(0,1)
+		f.Intrinsic.String.Split(v.Local.sWO(1),":",v.Local.sSeq)
+		v.Local.sSuffix.Set(v.Local.sSeq(0))
+		v.Local.sWO(1).Set(v.Local.sSeq(0))
+		v.Local.sSeq.Redim(0,0)
+		V.Local.sSeq.Set(V.Local.sRow(9))
+		F.Intrinsic.String.Left(V.Local.sRow(1),5,V.Local.sTimeIn)
+		F.Intrinsic.String.Left(V.Local.sRow(2),5,V.Local.sTimeOut)
+		F.Intrinsic.String.Replace(V.Local.sTimeIn,":","",V.Local.sTimeIn)
+		F.Intrinsic.String.Replace(V.Local.sTimeOut,":","",V.Local.sTimeOut)
+		F.Intrinsic.Math.IsNumeric(V.Local.sRow(11),V.Local.bNumeric)
+
+			F.Intrinsic.Control.If(V.Local.bNumeric,=,True)
+'				F.Intrinsic.Math.Div(V.Local.sRow(11).float,V.Local.sRow(5).float,V.Local.fLabUnits)
+'				F.Intrinsic.Math.Div(V.Local.sRow(13).float,V.Local.sRow(11),V.Local.fMatUnits)
+				F.Intrinsic.Math.Mult(V.Local.sRow(11).Float,10000,V.Local.fQTY)
+				V.Local.sQty.Set(V.Local.fQTY)
+'				V.Local.fUnitsComplete.Set(V.Local.sRow(11).Long)
+			F.Intrinsic.Control.Else
+'				V.Local.fLabUnits.Set(0)
+'				V.Local.fMatUnits.Set(0)
+				V.Local.fQTY.Set(0)
+				V.Local.fUnitsComplete.Set(0)
+			F.Intrinsic.Control.EndIf
+
+'wc on M line (L100)
+'employee='00999'
+		F.Intrinsic.string.Concat(V.Local.sLaborData,V.Local.sDate,V.Ambient.Tab,V.Local.semployee,V.Ambient.Tab,V.Local.sWO(0),V.Ambient.Tab,V.Local.sWO(1),V.Ambient.Tab,V.Local.sRow(9),V.Ambient.tab,V.Local.sWC.Trim,V.Ambient.tab,V.Local.sLaborData)
+		F.Intrinsic.String.Concat(V.Local.sLaborData,"0",V.Ambient.Tab,V.Local.sClose,V.Ambient.tab,"D",V.Ambient.tab,V.Local.sTimeIn,V.Ambient.Tab,V.Local.sTimeOut,V.Ambient.tab,"R",V.Ambient.Tab,V.Local.sQty.Long,V.Ambient.Tab,"0",V.Ambient.Tab,"0",V.Ambient.tab,V.Ambient.NewLine,V.Local.sLaborData)
+
+
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iFor)
+'labor post to job
+	F.Intrinsic.String.Concat(V.Caller.FilesDir,"\",V.Caller.CompanyCode,V.Caller.Terminal,"MOPEN.txt",V.Local.sFile)
+	F.Intrinsic.File.String2File(V.Local.sFile,V.Local.sLaborData)
+	F.Intrinsic.String.Concat(V.Ambient.DblQuote,V.Caller.CompanyCode,V.Caller.Terminal,"MOPEN.txt",V.Ambient.DblQuote,V.Local.sFile)
+	f.Intrinsic.String.Build("{0} : Info! Initiating program JB0455 with parameter(s) {1}",v.Ambient.Now, v.Local.sLaborData,v.Local.sLog)
+		f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	F.Intrinsic.Task.LaunchGSSSync("JB0455","-C",V.Local.sFile)
+'material post to job
+	F.Intrinsic.String.Concat(V.Caller.FilesDir,"\L",V.Caller.CompanyCode,V.Caller.Terminal,"MOPEN.txt",V.Local.sFile)
+	F.Intrinsic.File.String2File(V.Local.sFile,V.Local.sIssue)
+	F.Intrinsic.String.Concat("L",V.Caller.CompanyCode,V.Caller.Terminal,"MOPEN.txt",V.Local.sFile)
+	f.Intrinsic.String.Build("{0} : Info! Initiating call wrapper 450100 with file contents {1}",v.Ambient.Now, v.Local.sIssue,v.Local.sLog)
+		f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Global.General.CallWrapperSync(450100,v.Local.sFile)
+	
+'	F.Intrinsic.Task.LaunchGSSSync("WIR100","-C",V.Local.sFile,V.Local.iHndl)
+f.Intrinsic.Control.Catch
+'update the log  with error details
+v.Local.sError.declare(string)
+Function.Intrinsic.String.Concat(v.Ambient.Now,": Project: GCG_4626_NCELL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sError)
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.Intrinsic.Control.EndTry
+
+
+Program.Sub.LM.End
+
+Program.Sub.FS.Start
+f.Intrinsic.Control.Try
+V.Local.sLoadFile.Declare(String)
+V.Local.sLoadData.Declare(String)
+V.Local.sFiller.Declare(String)
+V.Local.iFor.Declare(Long)
+V.Local.sUpdate.Declare(String)
+V.Local.sCurrentNest.Declare(String)
+V.Local.sChildJob.Declare(String)
+V.Local.sParentJob.Declare(String)
+V.Local.sParentSuffx.Declare(String)
+V.Local.sJobOp.Declare(String)
+V.Local.sWO.Declare(String)
+V.Local.sJob.Declare(String)
+V.Local.sSuffix.Declare(String)
+V.Local.smatseq.Declare(String)
+V.Local.sLabSeq.Declare(String)
+V.Local.iSeq.Declare(Long)
+V.Local.sSel.Declare(String)
+V.Local.sImportDir.Declare(String)
+V.Local.sImportFile.Declare(String)
+V.Local.sImport.Declare(String)
+V.Local.sbackup.Declare(String)
+V.Local.bexists.Declare(Boolean)
+V.Local.iNestRedim.Declare(Long)
+V.Local.sNestId.Declare(String)
+V.Local.sIncrement.Declare(String)
+V.Local.sRow.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sValue.Declare(String)
+V.Local.sSQL.Declare(String)
+V.Local.sNextWC.Declare(String)
+V.Local.iIncrement.Declare(Long)
+V.Local.iNestId.Declare(Long)
+v.Local.sFilePath.Declare(String)
+v.Local.sLog.Declare(String)
+f.Intrinsic.String.Build("{0} : Info! Starting {1} Sub",v.Ambient.Now, v.Ambient.CurrentSubroutine,v.Local.sLog)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+
+'V.Local.sImportDir.Set("P:\Ncell\GLOBAL_DATA")
+f.Intrinsic.String.Build("{0}\NCELL.dat",v.Caller.FilesDir,v.Local.sFilePath)
+f.Intrinsic.File.Exists(v.Local.sFilePath,v.Local.bExists)
+f.Intrinsic.Control.If(v.Local.bExists,=,False)
+	'f.Intrinsic.UI.Msgbox("File Global\NCELL.dat does not exist.","Warning")
+	f.Intrinsic.String.Build("{0} : Warning! File Global\NCELL.dat does not exist",v.Ambient.Now, v.Local.sLog)
+	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Intrinsic.Control.End
+
+f.Intrinsic.Control.EndIf
+f.Intrinsic.File.File2String(v.Local.sFilePath,v.Local.sImportDir)
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir,v.Local.sImportDir)
+f.Intrinsic.Control.If(v.Local.sImportDir,=,"")
+	'f.Intrinsic.UI.Msgbox("File path is not specified in Global\NCELL.dat file","Warning")
+	f.Intrinsic.String.Build("{0} : File path is not specified in Global\NCELL.dat file",v.Ambient.Now, v.Local.sLog)
+	f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+	f.Intrinsic.Control.End
+
+f.Intrinsic.Control.EndIf
+f.Intrinsic.String.Split(v.Local.sImportDir,v.Ambient.NewLine,v.Local.sImportDir)
+v.Local.sImportDir.RedimPreserve(0,1)
+'0 is import, 1 is export
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir(0).Trim,v.Local.sImportDir(0))
+'f.Intrinsic.String.Build("{0}\",v.Local.sImportDir(1).Trim,v.Local.sImportDir(1))
+
+V.Local.iNestRedim.Set(-1)
+
+'Copy and Delete file here
+F.Intrinsic.String.Concat(V.Local.sImportDir,"\",V.Args.File,V.Local.sImportFile)
+F.Intrinsic.String.Concat(V.Local.sImportDir,"\Backup\",V.Args.File,".bkp",V.Local.sbackup)
+F.Intrinsic.File.Exists(V.Local.sbackup,V.Local.bexists)
+F.Intrinsic.Control.If(V.Local.bexists,=,True)
+	F.Intrinsic.File.DeleteFile(V.Local.sbackup)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.File.CopyFile(V.Local.sImportFile,V.Local.sBackup)
+F.Intrinsic.File.File2String(V.Local.sImportFile,V.Local.sImport)
+F.Intrinsic.File.DeleteFile(V.Local.sImportFile)
+
+F.Intrinsic.String.Split(V.Local.simport,V.Ambient.NewLine,V.Local.sLine)
+'for each line
+F.Intrinsic.Control.For(V.Local.iFor,V.Local.sLine.LBound,V.Local.sLine.UBound,1)
+	F.Intrinsic.String.SplitCSV(V.Local.sLine(V.Local.iFor),V.Local.sRow)
+
+'N=new nest ID
+	F.Intrinsic.Control.If(V.Local.sRow(0),=,"N")
+		V.Local.iNestId.Set(V.Local.sRow(1))
+		V.Local.iIncrement.Set(0)
+
+'P=new job line
+	F.Intrinsic.Control.ElseIf(V.Local.sRow(0),=,"P")
+		F.Intrinsic.Control.If(V.Local.sRow(1),=,"P")
+		'increment seq for each job on schedule
+			F.Intrinsic.Math.Add(V.Local.iIncrement,1,V.Local.iIncrement)
+			F.Intrinsic.Math.Add(V.Local.iNestRedim,1,V.Local.iNestRedim)
+
+		'job=(3) Job - Suffix : Seq
+			V.Local.sWO.Set(V.Local.sRow(3))
+			F.Intrinsic.String.Split(V.Local.sWO,":",V.Local.sValue)
+			V.Local.sValue.RedimPreserve(0,1)
+				V.Local.sLabSeq.Set(V.Local.sValue(1))
+			F.Intrinsic.String.Split(V.Local.sValue(0),"-",V.Local.sWO)
+				V.Local.sJob.Set(V.Local.sWO(0))
+					F.Intrinsic.String.LPad(V.Local.sJob,"0",6,V.Local.sJob)
+				V.Local.sSuffix.Set(V.Local.sWO(1))
+					F.Intrinsic.String.LPad(V.Local.sSuffix,"0",3,V.Local.sSuffix)
+
+		'get mat seq
+				F.Intrinsic.String.Concat("select Seq from JOB_OPERATIONS where LMO='M' and SEQ<'",V.Local.sLabSeq,"' and JOB='",V.Local.sJob.Trim,"' and SUFFIX='",V.Local.sSuffix.Trim,"' order by SEQ desc",V.Local.sSQL)
+'				f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSQL, v.Local.sLog)
+'				f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+				F.ODBC.Connection!conx.OpenRecordsetRW("rstJobOps",V.Local.sSQL)
+					F.Intrinsic.Control.If(V.ODBC.conx!rstJobOps.EOF,=,False)
+						V.Local.smatseq.Set(V.ODBC.conx!rstJobOps.FieldVal!Seq)
+					F.Intrinsic.Control.EndIf
+				F.ODBC.Conx!rstJobOps.Close
+
+		'get next workcenter for schedule
+				F.Intrinsic.String.Concat("select Seq,Part from Job_Operations where LMO='L' and Job='",V.Local.sJob,"' and Suffix='",V.Local.sSuffix,"' and Seq>'",V.Local.sLabSeq,"' and Flag_Closed<>'Y' and Flag_Set_Up<>'Y' and Part<>'' order by Seq",V.Local.sSQL)
+'				f.Intrinsic.String.Build("{0} : Info! running SQL query - {1}",v.Ambient.Now, v.Local.sSQL, v.Local.sLog)
+'				f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+				F.ODBC.Connection!Conx.OpenRecordsetRO("rstB",V.Local.sSQL)
+					F.Intrinsic.Control.If(V.ODBC.Conx!rstB.EOF,=,False)
+						V.Local.sNextWC.Set(V.ODBC.Conx!rstB.FieldValTrim!Part)
+						V.Local.sLabSeq.Set(V.ODBC.conx!rstB.FieldVal!Seq)
+					F.Intrinsic.Control.EndIf
+				F.ODBC.Conx!rstB.Close
+
+				F.Intrinsic.String.RPad(V.Local.sWO(1)," ",3,V.Local.sWO(1))
+				V.uGlobal.uNest.RedimPreserve(0,V.Local.iNestRedim)
+					F.Intrinsic.String.LPad(V.Local.iNestId,"0",6,V.Local.sNestId)
+				V.uGlobal.uNest(v.Local.iNestRedim)!NestID.Set(V.Local.sNestId)
+					F.Intrinsic.String.LPad(V.Local.iIncrement,"0",6,V.Local.sIncrement)
+				V.uGlobal.uNest(v.Local.iNestRedim)!Increment.Set(V.Local.sIncrement)
+				V.uGlobal.uNest(v.Local.iNestRedim)!Job.Set(V.Local.sJob)
+				V.uGlobal.uNest(v.Local.iNestRedim)!Suffix.Set(V.Local.sSuffix)
+					F.Intrinsic.String.LPad(V.Local.smatseq,"0",6,V.Local.smatseq)
+				V.uGlobal.uNest(v.Local.iNestRedim)!MatSeq.Set(V.Local.smatseq)
+					F.Intrinsic.String.LPad(V.Local.sLabSeq,"0",6,V.Local.sLabSeq)
+				V.uGlobal.uNest(v.Local.iNestRedim)!LabSeq.Set(V.Local.sLabSeq)
+				F.Intrinsic.String.RPad(V.Local.sNextWC," ",4,V.Local.sNextWC)
+				V.uGlobal.uNest(v.Local.iNestRedim)!WC.Set(V.Local.sNextWC)
+				F.Intrinsic.String.RPad(V.Local.sRow(2)," ",20,V.Local.sRow(2))
+				V.uGlobal.uNest(v.Local.iNestRedim)!Part.Set(V.Local.sRow(2))
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iFor)
+
+
+F.Intrinsic.String.Concat(V.Caller.FilesDir,"\SCHED.txt",V.Local.sLoadFile)
+'Nest ID,Nest Suffix, Increment, JOb, Suffix, Mat Seq, filler, Job, Suffix, Lab Seq, Beg Date, End Date, filler, wc, Part,Part Loc, sort orderm beginning due date, Ending Due Date
+
+	F.Intrinsic.String.LPad(V.Local.sFiller," ",3,V.Local.sFiller)
+Function.Intrinsic.Variable.UDTMultiSeekSet(V.uGlobal.uNest!NestSuffix,"",V.uGlobal.uNest!NestSuffix,V.Local.sFiller)
+	F.Intrinsic.String.LPad(V.Local.sFiller," ",5,V.Local.sFiller)
+Function.Intrinsic.Variable.UDTMultiSeekSet(V.uGlobal.uNest!FillerA,"",V.uGlobal.uNest!FillerA,V.Local.sFiller)
+	F.Intrinsic.String.LPad(V.Local.sFiller," ",25,V.Local.sFiller)
+Function.Intrinsic.Variable.UDTMultiSeekSet(V.uGlobal.uNest!FillerB,"",V.uGlobal.uNest!FillerB,V.Local.sFiller)
+Function.Intrinsic.Variable.UDTMultiSeekSet(V.uGlobal.uNest!BegDueDate,"",V.uGlobal.uNest!BegDueDate,"000000")
+Function.Intrinsic.Variable.UDTMultiSeekSet(V.uGlobal.uNest!EndDueDate,"",V.uGlobal.uNest!EndDueDate,"999999")
+	F.Intrinsic.String.LPad(V.Local.sFiller," ",2,V.Local.sFiller)
+Function.Intrinsic.Variable.UDTMultiSeekSet(V.uGlobal.uNest!PartLoc,"",V.uGlobal.uNest!PartLoc,V.Local.sFiller)
+	F.Intrinsic.String.LPad(V.Local.sFiller,"0",3,V.Local.sFiller)
+Function.Intrinsic.Variable.UDTMultiSeekSet(V.uGlobal.uNest!SortOrder,"",V.uGlobal.uNest!SortOrder,V.Local.sFiller)
+
+'for every recod
+F.Intrinsic.Control.For(V.Local.iFor,V.uGlobal.uNest.LBound,V.uGlobal.uNest.UBound,1)
+	F.Intrinsic.Control.If(V.Local.ifor,=,0)
+		F.Intrinsic.String.Concat(V.uGlobal.uNest(v.Local.iFor)!NestID,V.uGlobal.uNest(v.Local.iFor)!NestSuffix,V.uGlobal.uNest(v.Local.iFor)!Increment,V.uGlobal.uNest(v.Local.iFor)!Job,V.uGlobal.uNest(v.Local.iFor)!Suffix,V.Local.sLoadData)
+		F.Intrinsic.String.Concat(V.Local.sLoadData,V.uGlobal.uNest(v.Local.iFor)!MatSeq,V.uGlobal.uNest(v.Local.iFor)!FillerA,V.uGlobal.uNest(v.Local.iFor)!Job,V.uGlobal.uNest(v.Local.iFor)!Suffix,V.uGlobal.uNest(v.Local.iFor)!LabSeq,V.Local.sLoadData)
+		F.Intrinsic.String.Concat(V.Local.sLoadData,V.uGlobal.uNest(v.Local.iFor)!BegDueDate,V.uGlobal.uNest(v.Local.iFor)!EndDueDate,V.uGlobal.uNest(v.Local.iFor)!FillerB,V.uGlobal.uNest(v.Local.iFor)!WC,V.uGlobal.uNest(v.Local.iFor)!Part,V.Local.sLoadData)
+		F.Intrinsic.String.Concat(V.Local.sLoadData,V.uGlobal.uNest(v.Local.iFor)!PartLoc,V.uGlobal.uNest(v.Local.iFor)!SortOrder,V.uGlobal.uNest(v.Local.iFor)!BegDueDate,V.uGlobal.uNest(v.Local.iFor)!EndDueDate,V.Local.sLoadData)
+
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Concat(V.Local.sLoadData,V.Ambient.NewLine,V.uGlobal.uNest(v.Local.iFor)!NestID,V.uGlobal.uNest(v.Local.iFor)!NestSuffix,V.uGlobal.uNest(v.Local.iFor)!Increment,V.uGlobal.uNest(v.Local.iFor)!Job,V.uGlobal.uNest(v.Local.iFor)!Suffix,V.Local.sLoadData)
+		F.Intrinsic.String.Concat(V.Local.sLoadData,V.uGlobal.uNest(v.Local.iFor)!MatSeq,V.uGlobal.uNest(v.Local.iFor)!FillerA,V.uGlobal.uNest(v.Local.iFor)!Job,V.uGlobal.uNest(v.Local.iFor)!Suffix,V.uGlobal.uNest(v.Local.iFor)!LabSeq,V.Local.sLoadData)
+		F.Intrinsic.String.Concat(V.Local.sLoadData,V.uGlobal.uNest(v.Local.iFor)!BegDueDate,V.uGlobal.uNest(v.Local.iFor)!EndDueDate,V.uGlobal.uNest(v.Local.iFor)!FillerB,V.uGlobal.uNest(v.Local.iFor)!WC,V.uGlobal.uNest(v.Local.iFor)!Part,V.Local.sLoadData)
+		F.Intrinsic.String.Concat(V.Local.sLoadData,V.uGlobal.uNest(v.Local.iFor)!PartLoc,V.uGlobal.uNest(v.Local.iFor)!SortOrder,V.uGlobal.uNest(v.Local.iFor)!BegDueDate,V.uGlobal.uNest(v.Local.iFor)!EndDueDate,V.Local.sLoadData)
+
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iFor)
+
+F.Intrinsic.File.String2File(V.Local.sLoadFile,V.Local.sLoadData)
+f.Intrinsic.String.Build("{0} : Info! Initiating call wrapper 6000 with parameter {1}",v.Ambient.Now, v.Local.sLoadData,v.Local.sLog)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sLog)
+F.Global.General.CallWrapperAsync(6000,"NS!*!52")
+
+F.Intrinsic.Control.CallSub(Ncellimport_unload)
+
+f.Intrinsic.Control.Catch
+'update the log  with error details
+v.Local.sError.declare(string)
+Function.Intrinsic.String.Concat(v.Ambient.Now,": Project: GCG_4626_NCELL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+f.Intrinsic.File.Append2Filenewline(v.Global.sLogName,v.Local.sError)
+f.Intrinsic.File.String2File(v.Global.sProcessIDfile,"")
+f.Intrinsic.Control.EndTry
+
+Program.Sub.FS.End
+
+Program.Sub.Comments.Start
+${$0$}$ATG_IMS_NCELL$}$JCT$}$4/3/2012$}$False
+${$3$}$0$}$$}$-1$}$-1$}$$}$1/1/1900$}$For Integrated Manufacturing
+Program.Sub.Comments.End
+
